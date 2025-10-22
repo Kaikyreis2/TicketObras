@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ticket-api
+    env: dotnet
+    plan: free
+    buildCommand: "dotnet publish -c Release"
+    startCommand: "dotnet ./bin/Release/net9.0/TicketObras.dll"
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
