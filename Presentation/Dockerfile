@@ -1,10 +1,17 @@
-# Etapa de build
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# Etapa de build# Etapa 1: build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
-WORKDIR /app
-COPY Presentation/*.csproj ./      # copia o csproj da pasta Presentation
+
+# Copia apenas o csproj e restaura dependências
+COPY *.csproj ./
 RUN dotnet restore
-COPY Presentation/. ./             # copia o restante do projeto
+
+# Copia o restante do projeto e faz o build/publish
+COPY . ./
 RUN dotnet publish -c Release -o out
-EXPOSE 8080
+
+# Etapa 2: runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/out ./
 ENTRYPOINT ["dotnet", "Presentation.dll"]
