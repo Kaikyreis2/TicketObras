@@ -1,26 +1,18 @@
-# Etapa 1: Build
+# Etapa de build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /src
+WORKDIR /app
 
-# Copia tudo e restaura dependências
-COPY . .
-WORKDIR /src/Presentation
+# Copia e restaura o projeto
+COPY *.csproj ./
 RUN dotnet restore
 
-# Compila e publica em modo Release
-RUN dotnet publish -c Release -o /app/publish
+# Copia todo o resto e publica
+COPY . .
+RUN dotnet publish -c Release -o out
 
-# Etapa 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+# Etapa final (runtime)
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=build /app/publish .
-
-# Expõe a porta padrão do ASP.NET
+COPY --from=build /app/out .
 EXPOSE 8080
-
-# Define a variável de ambiente padrão
-ENV ASPNETCORE_URLS=http://+:8080
-ENV ASPNETCORE_ENVIRONMENT=Production
-
-# Inicia o aplicativo
 ENTRYPOINT ["dotnet", "Presentation.dll"]
