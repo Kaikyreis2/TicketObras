@@ -12,6 +12,8 @@ var app = builder.Build();
 
 app.MapGet("/", () => "Hello World!");
 
+app.MapGet("/hello", () => "Hello World!");
+
 app.MapGet("excell", ([FromBody] List<Ticket> tickets) =>
 {
 
