@@ -1,16 +1,28 @@
 using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Spreadsheet;
+using Infrastructure;
+using Domain;
 using Microsoft.AspNetCore.Mvc;
-using Presentation;
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
-using System.Text;
+
+using Microsoft.EntityFrameworkCore;
+using System.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddTransient<ITicketRepository, TicketRepository>();
+
 var app = builder.Build();
 
-app.MapGet("/", () => "Hello World!");
+
+var prefix = app.MapGroup("/api/v1");
+prefix.MapGet("/", () => "Hello World!");
+
+prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =>
+{
+    var result = await _repository.GetAllAsync();
+    
+    return Results.Ok(result);
+});
 
 app.MapGet("/hello", () => "Hello World!");
 
@@ -57,7 +69,7 @@ app.MapGet("excell", ([FromBody] List<Ticket> tickets) =>
 
     return Results.File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "tickets.xlsx");
 });
-
+/*
 app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
 {
     QuestPDF.Settings.License = LicenseType.Community;
@@ -104,8 +116,14 @@ app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
     document.GeneratePdf(stream);
     return Results.File(stream.ToArray(), "application/pdf", "tickets.pdf");
 });
+*/
 
+prefix.MapPost("/", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
+{
+    return Results.Ok(await _repository.AddAsync(ticket));
+});
+/*
 static IContainer PdfCellStyle(IContainer container)
     => container.Border(0.5f).PaddingVertical(2).PaddingHorizontal(3);
-
+*/
 app.Run();
