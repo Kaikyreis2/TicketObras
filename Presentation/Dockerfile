@@ -4,7 +4,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /app
 
 # Copia o arquivo .sln da raiz (se estiver no contexto)
-COPY ...
+COPY .. .
 
 # Restaura a solução inteira
 RUN dotnet restore TicketObras.sln
@@ -17,6 +17,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
 # Copia a saída da etapa de build
-COPY --from=build /app/out ./
+COPY --from=build /app/out .
 
 ENTRYPOINT ["dotnet", "Presentation.dll"]
