@@ -6,7 +6,22 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Configuration;
 
+
+
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(op =>
+{
+    op.AddPolicy("AngularDev", po =>
+    {
+        po.WithOrigins("http://localhost:4200")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+    });
+});
+
 
 builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
