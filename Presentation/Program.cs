@@ -28,6 +28,7 @@ builder.Services.AddTransient<ITicketRepository, TicketRepository>();
 
 var app = builder.Build();
 
+app.UseCors("AngularDev");
 
 var prefix = app.MapGroup("/api/v1");
 prefix.MapGet("/", () => "Hello World!");
