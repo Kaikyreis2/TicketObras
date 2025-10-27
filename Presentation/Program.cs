@@ -162,6 +162,12 @@ app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
 });
 */
 
+prefix.MapPut("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
+{
+
+    return Results.Ok(await _repository.UpdateAsync(ticket));
+});
+
 prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
 
