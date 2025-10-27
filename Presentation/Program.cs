@@ -22,8 +22,7 @@ builder.Services.AddCors(op =>
     });
 });
 
-builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), e => e.CommandTimeout(120)));
 
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
 
@@ -66,9 +65,12 @@ prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =
     return Results.Ok(result);
 });
 
-app.MapGet("/hello", () => "Hello World!");
+/*prefix.MapGet("/hello", ([FromServices] Context context) =>
+{
+    return Results.Ok(context);
+});
 
-app.MapGet("/excell", async  ([FromServices] ITicketRepository _repository) =>
+prefix.MapGet("/excell", async  ([FromServices] ITicketRepository _repository) =>
 {
     var tickets = await _repository.GetAllAsync();
     using var workbook = new XLWorkbook();
@@ -111,7 +113,7 @@ app.MapGet("/excell", async  ([FromServices] ITicketRepository _repository) =>
 
     return Results.File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"tickets{DateTime.UtcNow::g}.xlsx");
 });
-/*
+
 app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
 {
     QuestPDF.Settings.License = LicenseType.Community;
@@ -160,7 +162,7 @@ app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
 });
 */
 
-prefix.MapPost("/", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
+prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
 
     return Results.Ok(await _repository.AddAsync(ticket));
