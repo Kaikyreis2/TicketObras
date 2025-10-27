@@ -22,15 +22,41 @@ builder.Services.AddCors(op =>
     });
 });
 
-
 builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
 
 var app = builder.Build();
 
+
 app.UseCors("AngularDev");
 
+app.UseRouting();
+
+app.Use(async (context, next) =>
+{
+    var apiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
+
+    var validApiKey = builder.Configuration.GetValue<string>("api-key-x");
+
+    if (string.IsNullOrEmpty(validApiKey))
+    {
+        await next();
+        return;
+    }
+
+    if (string.IsNullOrEmpty(apiKey) || !apiKey.Equals(validApiKey, StringComparison.Ordinal))
+    {
+        context.Response.StatusCode = 401;
+        return;
+    }
+
+    await next();
+});
+
 var prefix = app.MapGroup("/api/v1");
+
 prefix.MapGet("/", () => "Hello World!");
 
 prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =>
@@ -42,9 +68,9 @@ prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =
 
 app.MapGet("/hello", () => "Hello World!");
 
-app.MapGet("excell", ([FromBody] List<Ticket> tickets) =>
+app.MapGet("/excell", async  ([FromServices] ITicketRepository _repository) =>
 {
-
+    var tickets = await _repository.GetAllAsync();
     using var workbook = new XLWorkbook();
     var worksheet = workbook.Worksheets.Add("Tickets");
 
@@ -83,7 +109,7 @@ app.MapGet("excell", ([FromBody] List<Ticket> tickets) =>
     workbook.SaveAs(stream);
     var content = stream.ToArray();
 
-    return Results.File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "tickets.xlsx");
+    return Results.File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"tickets{DateTime.UtcNow::g}.xlsx");
 });
 /*
 app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
@@ -136,6 +162,7 @@ app.MapGet("/pdf", ([FromBody] List<Ticket> tickets) =>
 
 prefix.MapPost("/", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
+
     return Results.Ok(await _repository.AddAsync(ticket));
 });
 /*
