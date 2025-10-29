@@ -13,6 +13,13 @@ namespace Infrastructure;
 public class Context(DbContextOptions<Context> options) : DbContext(options)
 {
     public DbSet<Ticket> Tickets { get; set; }
+    public DbSet<Role> Roles { get; set; }
+    public DbSet<User> Users { get; set; }
+
+    /*protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseNpgsql();
+    }*/
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,7 +45,32 @@ public class Context(DbContextOptions<Context> options) : DbContext(options)
             ticket.Property(e => e.OS).HasMaxLength(50);
         });
 
+        modelBuilder.Entity<User>(u =>
+        {
+            u.HasKey(p => p.Id)
+                .HasName("PK_User_Id");
 
+            u.Property(p => p.PasswordHash).HasMaxLength(100);
+            u.Property(p => p.Email).HasMaxLength(50);
+      
+            u.HasMany(u => u.Roles)
+            .WithMany(r => r.Users)
+            .UsingEntity<Dictionary<string, object>>(
+                    "UserRole",
+                    j => j.HasOne<Role>().WithMany().HasForeignKey("RoleId").HasPrincipalKey(r => r.Id),
+                    j => j.HasOne<User>().WithMany().HasForeignKey("UserId").HasPrincipalKey(u => u.Id),
+                    j =>
+                    {
+                        j.HasKey("UserId", "RoleId");
+                        j.ToTable("UserRole");
+                    }
+                );
+
+
+
+            u.HasIndex(p => p.Email).IsUnique();
+
+        });
 
     }
 }
