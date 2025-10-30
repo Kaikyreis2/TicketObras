@@ -57,6 +57,7 @@ builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
 
     };
 });
+
 builder.Services.AddAuthorization();
 
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
@@ -69,15 +70,16 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 });
 var app = builder.Build();
 
+app.UseRouting();
 app.UseCors("AngularDev");
-
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
 
 
 
-app.UseRouting();
+
 /*
 app.Use(async (context, next) =>
 {
@@ -102,7 +104,7 @@ app.Use(async (context, next) =>
 
 var prefix = app.MapGroup("/api/v1");
 
-prefix.MapGet("/", () => "Hello World!").RequireAuthorization("User");
+prefix.MapGet("/", () => "Hello World!").RequireAuthorization();
 
 prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =>
 {
@@ -117,11 +119,12 @@ prefix.MapPut("/tickets", async ([FromServices] ITicketRepository _repository, [
     return Results.Ok(await _repository.UpdateAsync(ticket));
 }).RequireAuthorization();
 
-
 prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
     return Results.Ok(await _repository.AddAsync(ticket));
 }).RequireAuthorization();
+
+
 
 prefix.MapPost("/login",[AllowAnonymous] async ([FromBody] UserRequest request, [FromServices] AccountService accountService,  HttpContext context) =>
 {
