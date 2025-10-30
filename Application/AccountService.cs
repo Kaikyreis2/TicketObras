@@ -1,6 +1,5 @@
 ﻿using BCrypt.Net;
 using static BCrypt.Net.BCrypt;
-using Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,9 +9,9 @@ using Domain;
 
 namespace Application
 {
-    public class AccountService(UserRepository repository)
+    public class AccountService(IUserRepository repository)
     {
-        private readonly UserRepository _repository = repository;
+        private readonly IUserRepository _repository = repository;
 
         public async Task<User> CheckLoginAsync(string email, string password)
         {

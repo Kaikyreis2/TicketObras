@@ -14,6 +14,8 @@ using Presentation;
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 
 
@@ -36,16 +38,35 @@ builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
 {
     c.ExpireTimeSpan = TimeSpan.FromDays(1);
     c.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    c.Cookie.SameSite = SameSiteMode.Strict;
+    c.Cookie.SameSite = SameSiteMode.Lax;
     c.Cookie.HttpOnly = true;
+    c.Events = new CookieAuthenticationEvents()
+    {
+        OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        },
+
+        OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        }
+
+
+    };
 });
 builder.Services.AddAuthorization();
 
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
-builder.Services.AddTransient<UserRepository>();
-builder.Services.AddTransient<RoleRepository>();
+builder.Services.AddTransient<IUserRepository, UserRepository>();
+builder.Services.AddTransient<IRoleRepository, RoleRepository>();
 builder.Services.AddTransient<AccountService>();
-
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 var app = builder.Build();
 
 app.UseAuthentication();
@@ -79,7 +100,7 @@ app.Use(async (context, next) =>
 
 var prefix = app.MapGroup("/api/v1");
 
-prefix.MapGet("/", () => "Hello World!").RequireAuthorization();
+prefix.MapGet("/", () => "Hello World!").RequireAuthorization("User");
 
 prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =>
 {
@@ -94,9 +115,9 @@ prefix.MapPut("/tickets", async ([FromServices] ITicketRepository _repository, [
     return Results.Ok(await _repository.UpdateAsync(ticket));
 }).RequireAuthorization();
 
+
 prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
-
     return Results.Ok(await _repository.AddAsync(ticket));
 }).RequireAuthorization();
 
@@ -107,30 +128,28 @@ prefix.MapPost("/login",[AllowAnonymous] async ([FromBody] UserRequest request, 
         var isValidUser = await accountService.CheckLoginAsync(request.Email, request.Password);
 
         if (isValidUser is null)
-            return Results.BadRequest("Login invalido");
-
+            return Results.BadRequest("Login inválido");
 
         var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Email, isValidUser.Email)
-        };
-
-
+    {
+        new Claim(ClaimTypes.Email, isValidUser.Email)
+    };
         foreach (var role in isValidUser.Roles)
         {
-            claims.Append(new Claim(ClaimTypes.Role, role.Name));
+            claims.Add(new Claim(ClaimTypes.Role, role.Name));
         }
 
         var claimIdentity = new ClaimsIdentity(claims, "Cookies");
 
         await context.SignInAsync("Cookies", new ClaimsPrincipal(claimIdentity));
 
-       return Results.Ok();
-
-    }catch(Exception e)
-    {
-        return Results.InternalServerError(e.Message);
+        return Results.Ok();
     }
+    catch (Exception e)
+    {
+        return Results.Problem(e.Message);
+    }
+
 });
 
 prefix.MapPost("/logout", async ([FromServices] AccountService accountService, HttpContext context) =>
@@ -147,13 +166,13 @@ prefix.MapPost("/logout", async ([FromServices] AccountService accountService, H
     }
 }).RequireAuthorization();
 
-/*prefix.MapPost("/register", [AllowAnonymous] async ([FromServices] UserRepository repository, [FromBody] UserRequest request) =>
+prefix.MapPost("/register", [AllowAnonymous] async ([FromServices] IUserRepository repository, [FromBody] UserRequest request) =>
 {
     try
     {
 
         var passwordHash = HashPassword(request.Password);
-        await repository.Add(new User() { Email = request.Email, PasswordHash = passwordHash});
+        await repository.AddAsync(new User() { Email = request.Email, PasswordHash = passwordHash});
         return Results.Ok(passwordHash);
 
     }
@@ -161,7 +180,90 @@ prefix.MapPost("/logout", async ([FromServices] AccountService accountService, H
     {
         return Results.InternalServerError(e.Message);
     }
-});*/
+}).RequireAuthorization();
+
+
+prefix.MapGet("/users", async ([FromServices] IUserRepository _repository) =>
+{
+    return Results.Ok(await _repository.GetAllAsync());
+}).RequireAuthorization();
+
+prefix.MapGet("/users/{id:int}", async ([FromServices] IUserRepository _repository, [FromRoute] int Id) =>
+{
+    var result = await _repository.GetByIdAsync(Id);
+
+    if (result == null)
+        return Results.NotFound();
+
+    return Results.Ok(result);
+}).RequireAuthorization();
+prefix.MapGet("/users/current", (HttpContext context) =>
+{
+    var user = context.User;
+    var email = context.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+    var roles = context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
+    return Results.Ok(new
+    {
+        email = email,
+        roles = roles 
+    });
+}).RequireAuthorization();
+prefix.MapPut("/users", async ([FromServices] IUserRepository _repository, [FromBody] User user) =>
+{
+    return Results.Ok(await _repository.UpdateAsync(user));
+}).RequireAuthorization();
+prefix.MapDelete("/users/{id:int}", async ([FromServices] IUserRepository _repository, [FromRoute] int Id) =>
+{
+    return Results.Ok(await _repository.RemoveAsync(new User() { Id = Id}));
+}).RequireAuthorization();
+
+
+
+prefix.MapGet("/roles", async ([FromServices] IRoleRepository _repository) =>
+{
+    return Results.Ok(await _repository.GetAllAsync());
+});
+prefix.MapGet("/roles/{id:int}", async ([FromServices] IRoleRepository _repository, [FromRoute] int Id) =>
+{
+    return Results.Ok(await _repository.GetByIdAsync(Id));
+});
+prefix.MapDelete("/roles/{id:int}", async ([FromServices] IRoleRepository _repository, [FromRoute] int Id) =>
+{
+    return Results.Ok(await _repository.DeleteAsync(new Role() { Id = Id }));
+});
+prefix.MapPut("/roles", async ([FromServices] IRoleRepository _repository, [FromBody] Role role) =>
+{
+    return Results.Ok(await _repository.UpdateAsync(role));
+});
+prefix.MapPost("/roles", async ([FromServices] IRoleRepository _repository, [FromBody] Role role) =>
+{
+    return Results.Ok(await _repository.AddAsync(role));
+});
+
+
+
+prefix.MapPost("user/{userId:int}/roles/{roleId:int}", async ([FromServices] IUserRepository _repository, [FromServices] IRoleRepository _roleRepository, [FromRoute] int userId, [FromRoute] int roleId) =>
+{
+    var user = await _repository.GetByIdAsync(userId);
+    var role = await _roleRepository.GetByIdAsync(roleId);
+
+    if (user == null)
+        return Results.NotFound("User not exist");
+
+    if (role == null)
+        return Results.NotFound("Role not exist");
+
+    user.Roles.Add(role);
+
+    return Results.Ok(await _repository.UpdateAsync(user));
+});
+
+prefix.MapGet("user/{id:int}/roles", async ([FromServices] IRoleRepository _repository) =>
+{
+    return Results.Ok(await _repository.GetAllAsync());
+});
+
+
 
 /*prefix.MapGet("/hello", ([FromServices] Context context) =>
 {
