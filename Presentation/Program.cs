@@ -38,7 +38,7 @@ builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
 {
     c.ExpireTimeSpan = TimeSpan.FromDays(1);
     c.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    c.Cookie.SameSite = SameSiteMode.Lax;
+    c.Cookie.SameSite = SameSiteMode.None;
     c.Cookie.HttpOnly = true;
     c.Events = new CookieAuthenticationEvents()
     {
