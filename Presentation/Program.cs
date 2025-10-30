@@ -76,7 +76,7 @@ app.UseAuthorization();
 app.UseCors("AngularDev");
 
 app.UseRouting();
-
+/*
 app.Use(async (context, next) =>
 {
     var apiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
@@ -96,7 +96,7 @@ app.Use(async (context, next) =>
     }
 
     await next();
-}).UseAuthentication().UseAuthorization();
+}).UseAuthentication().UseAuthorization();*/
 
 var prefix = app.MapGroup("/api/v1");
 
