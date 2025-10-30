@@ -69,11 +69,13 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 });
 var app = builder.Build();
 
+app.UseCors("AngularDev");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 
-app.UseCors("AngularDev");
+
 
 app.UseRouting();
 /*
