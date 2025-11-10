@@ -26,7 +26,7 @@ builder.Services.AddCors(op =>
 {
     op.AddPolicy("AngularDev", po =>
     {
-        po.WithOrigins("http://localhost:4200")
+        po.WithOrigins("https://ticket-green.vercel.app")
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials();
