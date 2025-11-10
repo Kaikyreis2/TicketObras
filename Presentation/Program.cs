@@ -82,30 +82,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 
-
-
-
-app.Use(async (context, next) =>
-{
-    var apiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
-
-    var validApiKey = builder.Configuration.GetValue<string>("api-key-x");
-
-    if (string.IsNullOrEmpty(validApiKey))
-    {
-        await next();
-        return;
-    }
-
-    if (string.IsNullOrEmpty(apiKey) || !apiKey.Equals(validApiKey, StringComparison.Ordinal))
-    {
-        context.Response.StatusCode = 401;
-        return;
-    }
-
-    await next();
-}).UseAuthentication().UseAuthorization();
-
 var prefix = app.MapGroup("/api/v1");
 
 
