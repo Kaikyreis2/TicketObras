@@ -34,6 +34,7 @@ builder.Services.AddCors(op =>
 });
 
 builder.Services.AddDbContext<Context>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), e => e.CommandTimeout(120)));
+
 builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
 {
     c.ExpireTimeSpan = TimeSpan.FromDays(1);
@@ -58,7 +59,11 @@ builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("Administrador", p => p.RequireRole("Administrador"))
+    .AddPolicy("User", p => p.RequireRole("User"))
+    .AddPolicy("Moderator", p => p.RequireRole("Moderator"))
+    .AddPolicy("ReadOnly", p => p.RequireRole("ReadOnly"));
 
 builder.Services.AddTransient<ITicketRepository, TicketRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
@@ -80,7 +85,6 @@ app.UseAuthorization();
 
 
 
-/*
 app.Use(async (context, next) =>
 {
     var apiKey = context.Request.Headers["X-API-Key"].FirstOrDefault();
@@ -100,29 +104,37 @@ app.Use(async (context, next) =>
     }
 
     await next();
-}).UseAuthentication().UseAuthorization();*/
+}).UseAuthentication().UseAuthorization();
 
 var prefix = app.MapGroup("/api/v1");
 
-prefix.MapGet("/", () => "Hello World!").RequireAuthorization();
+
+
+prefix.MapGet("/health", [AllowAnonymous] () => { return Results.Ok("Running"); });
+
 
 prefix.MapGet("/tickets", async ([FromServices] ITicketRepository _repository) =>
 {
     var result = await _repository.GetAllAsync();
     
     return Results.Ok(result);
-}).RequireAuthorization();
+}).RequireAuthorization("User");
 
 prefix.MapPut("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
 
     return Results.Ok(await _repository.UpdateAsync(ticket));
-}).RequireAuthorization();
+}).RequireAuthorization("Administrador", "User");
 
 prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
     return Results.Ok(await _repository.AddAsync(ticket));
-}).RequireAuthorization();
+}).RequireAuthorization("Administrador","User");
+
+prefix.MapDelete("/tickets/{Id:int}", async ([FromServices] ITicketRepository _repository, [FromRoute] int id) =>
+{
+    return Results.Ok(await _repository.DeleteAsync(id));
+}).RequireAuthorization("Administrador", "User");
 
 
 
@@ -185,13 +197,13 @@ prefix.MapPost("/register", [AllowAnonymous] async ([FromServices] IUserReposito
     {
         return Results.InternalServerError(e.Message);
     }
-}).RequireAuthorization();
+}).RequireAuthorization("Administrador");
 
 
 prefix.MapGet("/users", async ([FromServices] IUserRepository _repository) =>
 {
     return Results.Ok(await _repository.GetAllAsync());
-}).RequireAuthorization();
+}).RequireAuthorization("Administrador");
 
 prefix.MapGet("/users/{id:int}", async ([FromServices] IUserRepository _repository, [FromRoute] int Id) =>
 {
@@ -201,7 +213,7 @@ prefix.MapGet("/users/{id:int}", async ([FromServices] IUserRepository _reposito
         return Results.NotFound();
 
     return Results.Ok(result);
-}).RequireAuthorization();
+}).RequireAuthorization("Administrador");
 prefix.MapGet("/users/current", (HttpContext context) =>
 {
     var user = context.User;
