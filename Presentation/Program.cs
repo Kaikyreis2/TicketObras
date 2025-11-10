@@ -60,7 +60,7 @@ builder.Services.AddAuthentication("Cookies").AddCookie("Cookies",c =>
 });
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("Administrador", p => p.RequireRole("Administrador"))
+    .AddPolicy("Admin", p => p.RequireRole("Admin"))
     .AddPolicy("User", p => p.RequireRole("User"))
     .AddPolicy("Moderator", p => p.RequireRole("Moderator"))
     .AddPolicy("ReadOnly", p => p.RequireRole("ReadOnly"));
@@ -100,17 +100,17 @@ prefix.MapPut("/tickets", async ([FromServices] ITicketRepository _repository, [
 {
 
     return Results.Ok(await _repository.UpdateAsync(ticket));
-}).RequireAuthorization("Administrador", "User");
+}).RequireAuthorization("Admin", "User");
 
 prefix.MapPost("/tickets", async ([FromServices] ITicketRepository _repository, [FromBody] Ticket ticket) =>
 {
     return Results.Ok(await _repository.AddAsync(ticket));
-}).RequireAuthorization("Administrador","User");
+}).RequireAuthorization("Admin","User");
 
 prefix.MapDelete("/tickets/{Id:int}", async ([FromServices] ITicketRepository _repository, [FromRoute] int id) =>
 {
     return Results.Ok(await _repository.DeleteAsync(id));
-}).RequireAuthorization("Administrador", "User");
+}).RequireAuthorization("Admin", "User");
 
 
 
@@ -173,13 +173,13 @@ prefix.MapPost("/register", [AllowAnonymous] async ([FromServices] IUserReposito
     {
         return Results.InternalServerError(e.Message);
     }
-}).RequireAuthorization("Administrador");
+}).RequireAuthorization("Admin");
 
 
 prefix.MapGet("/users", async ([FromServices] IUserRepository _repository) =>
 {
     return Results.Ok(await _repository.GetAllAsync());
-}).RequireAuthorization("Administrador");
+}).RequireAuthorization("Admin");
 
 prefix.MapGet("/users/{id:int}", async ([FromServices] IUserRepository _repository, [FromRoute] int Id) =>
 {
@@ -189,7 +189,7 @@ prefix.MapGet("/users/{id:int}", async ([FromServices] IUserRepository _reposito
         return Results.NotFound();
 
     return Results.Ok(result);
-}).RequireAuthorization("Administrador");
+}).RequireAuthorization("Admin");
 prefix.MapGet("/users/current", (HttpContext context) =>
 {
     var user = context.User;
