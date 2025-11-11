@@ -26,6 +26,11 @@ builder.Services.AddCors(op =>
 {
     op.AddPolicy("AngularDev", po =>
     {
+        po.WithOrigins("http://localhost:4200")
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
+
         po.WithOrigins("https://ticket-green.vercel.app")
         .AllowAnyHeader()
         .AllowAnyMethod()
@@ -76,6 +81,26 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 var app = builder.Build();
 
 app.UseRouting();
+
+/*app.Use(async (context, next) =>
+{
+    var iplocal = context.Connection.LocalIpAddress?.ToString();
+
+    if(string.IsNullOrEmpty(iplocal))
+        iplocal = context.Request.Headers["X-Forwarded-For"].ToString();
+    
+
+    List<string> ipsAllowed = builder.Configuration.GetValue<List<string>>("ips-allowed") ?? [];
+
+    if (string.IsNullOrEmpty(iplocal) || !ipsAllowed.Contains(iplocal))
+    {
+        context.Response.StatusCode = 403;
+        return;
+    }
+
+    await next();
+
+});*/
 app.UseCors("AngularDev");
 app.UseHttpsRedirection();
 app.UseAuthentication();
@@ -119,7 +144,6 @@ prefix.MapPost("/login",[AllowAnonymous] async ([FromBody] UserRequest request, 
     try
     {
         var isValidUser = await accountService.CheckLoginAsync(request.Email, request.Password);
-
         if (isValidUser is null)
             return Results.BadRequest("Login inválido");
 
@@ -135,7 +159,7 @@ prefix.MapPost("/login",[AllowAnonymous] async ([FromBody] UserRequest request, 
         var claimIdentity = new ClaimsIdentity(claims, "Cookies");
 
         await context.SignInAsync("Cookies", new ClaimsPrincipal(claimIdentity));
-
+        var stringBuilder = new StringBuilder();
         return Results.Ok();
     }
     catch (Exception e)
