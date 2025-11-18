@@ -307,7 +307,7 @@ prefix.MapPost("email", async ([FromServices] HttpClient client, [FromBody] Emai
         {
             new {
                 name = "relatorio.pdf",
-                content = request.content
+                content = "teste de envio"
             }
         }
     };
