@@ -1,21 +1,21 @@
-using ClosedXML.Excel;
-using static BCrypt.Net.BCrypt;
-using Infrastructure;
-using Domain;
-using Microsoft.AspNetCore.Mvc;
-
-using Microsoft.EntityFrameworkCore;
-using System.Configuration;
 using Application;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.AspNetCore.Authorization;
-using Presentation;
+using ClosedXML.Excel;
+using Domain;
+using Infrastructure;
 using Microsoft.AspNetCore.Authentication;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Presentation;
+using System.Buffers.Text;
+using System.Configuration;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using static BCrypt.Net.BCrypt;
 
 
 
@@ -74,6 +74,8 @@ builder.Services.AddTransient<ITicketRepository, TicketRepository>();
 builder.Services.AddTransient<IUserRepository, UserRepository>();
 builder.Services.AddTransient<IRoleRepository, RoleRepository>();
 builder.Services.AddTransient<AccountService>();
+builder.Services.AddTransient<HttpClient>();
+
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
@@ -183,7 +185,7 @@ prefix.MapPost("/logout", async ([FromServices] AccountService accountService, H
     }
 }).RequireAuthorization();
 
-prefix.MapPost("/register", [AllowAnonymous] async ([FromServices] IUserRepository repository, [FromBody] UserRequest request) =>
+prefix.MapPost("/register", async ([FromServices] IUserRepository repository, [FromBody] UserRequest request) =>
 {
     try
     {
@@ -224,38 +226,38 @@ prefix.MapGet("/users/current", (HttpContext context) =>
         email = email,
         roles = roles 
     });
-}).RequireAuthorization();
+}).RequireAuthorization("Admin");
 prefix.MapPut("/users", async ([FromServices] IUserRepository _repository, [FromBody] User user) =>
 {
     return Results.Ok(await _repository.UpdateAsync(user));
-}).RequireAuthorization();
+}).RequireAuthorization("Admin");
 prefix.MapDelete("/users/{id:int}", async ([FromServices] IUserRepository _repository, [FromRoute] int Id) =>
 {
     return Results.Ok(await _repository.RemoveAsync(new User() { Id = Id}));
-}).RequireAuthorization();
+}).RequireAuthorization("Admin");
 
 
 
 prefix.MapGet("/roles", async ([FromServices] IRoleRepository _repository) =>
 {
     return Results.Ok(await _repository.GetAllAsync());
-});
+}).RequireAuthorization("Admin");
 prefix.MapGet("/roles/{id:int}", async ([FromServices] IRoleRepository _repository, [FromRoute] int Id) =>
 {
     return Results.Ok(await _repository.GetByIdAsync(Id));
-});
+}).RequireAuthorization("Admin");
 prefix.MapDelete("/roles/{id:int}", async ([FromServices] IRoleRepository _repository, [FromRoute] int Id) =>
 {
     return Results.Ok(await _repository.DeleteAsync(new Role() { Id = Id }));
-});
+}).RequireAuthorization("Admin");
 prefix.MapPut("/roles", async ([FromServices] IRoleRepository _repository, [FromBody] Role role) =>
 {
     return Results.Ok(await _repository.UpdateAsync(role));
-});
+}).RequireAuthorization("Admin");
 prefix.MapPost("/roles", async ([FromServices] IRoleRepository _repository, [FromBody] Role role) =>
 {
     return Results.Ok(await _repository.AddAsync(role));
-});
+}).RequireAuthorization("Admin");
 
 
 
@@ -273,12 +275,53 @@ prefix.MapPost("user/{userId:int}/roles/{roleId:int}", async ([FromServices] IUs
     user.Roles.Add(role);
 
     return Results.Ok(await _repository.UpdateAsync(user));
-});
+}).RequireAuthorization("Admin");
 
 prefix.MapGet("user/{id:int}/roles", async ([FromServices] IRoleRepository _repository) =>
 {
     return Results.Ok(await _repository.GetAllAsync());
+}).RequireAuthorization("Admin");
+
+
+prefix.MapPost("email", async ([FromServices] HttpClient client, [FromBody] EmailRequest request) =>
+{
+    
+    var brevoEndpoint = "https://api.brevo.com/v3/smtp/email";
+    var body = new
+    {
+        sender = new
+        {
+            name = "Relatorio Ticket",
+            email = "kaikyreis123@gmail.com"
+        },
+        to = new[]
+    {
+        new {
+            email = "kaikyreis123@gmail.com",
+            name = "kaiky"
+        }
+    },
+        subject = "Relatorio",
+        htmlContent = "Teste envio ticket",
+        attachment = new[]
+        {
+            new {
+                name = "relatorio.pdf",
+                content = request.content
+            }
+        }
+    };
+
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.DefaultRequestHeaders.Add("api-key", builder.Configuration.GetValue<string>("email-key"));
+    
+
+    var result = await client.PostAsync(brevoEndpoint, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
+
+    return Results.Ok(await result.Content.ReadAsStringAsync());
 });
+
+
 
 
 
